@@ -1,6 +1,6 @@
 # P6 Cost Writer — How to Use This Every Time
 
-A browser tool that loads **cost onto Primavera P6 activities** by Activity ID and produces a P6-importable XLSX. Runs entirely in your browser — no install, no data leaves your machine. Open `P6_Cost_Writer.html` in any browser.
+A browser tool that loads **cost onto Primavera P6 activities** by Activity ID and produces a P6-importable XLSX. Runs entirely in your browser — no install, no data leaves your machine. Open `P6_Cost_Writer` in any browser.
 
 Tested against Primavera **P6 Professional 23**. Currency in the sample project: **Saudi Riyal**.
 
