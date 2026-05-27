@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P6 Cost Writer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#15130f; --paper:#efe9dd; --card:#f8f4ea; --line:#ddd4c0; --line2:#c9bda1;
+    --accent:#9c3318; --accent2:#2a5d54; --gold:#b8862f; --soft:#6f6852;
+    --good:#2a5d54; --bad:#9c3318; --warn:#8a5600;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;}
+  body{background-image:repeating-linear-gradient(0deg,transparent,transparent 21px,rgba(0,0,0,.018) 21px,rgba(0,0,0,.018) 22px);}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 90px;}
+  header.mast{border-bottom:3px double var(--ink);padding-bottom:13px;}
+  .kick{font-family:"Courier New",monospace;letter-spacing:.32em;text-transform:uppercase;font-size:11px;color:var(--accent);margin:0 0 6px;}
+  h1{font-size:36px;margin:0;letter-spacing:-.5px;}
+  .sub{font-size:14px;color:var(--soft);margin:8px 0 0;max-width:740px;line-height:1.5;}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:18px 20px;margin:16px 0;
+    box-shadow:0 1px 0 #fff inset,0 2px 12px rgba(21,19,15,.06);}
+  .panel h2{font-size:12.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent2);margin:0 0 12px;font-family:"Courier New",monospace;}
+  .step{display:inline-block;width:21px;height:21px;line-height:21px;text-align:center;border-radius:50%;background:var(--ink);color:var(--paper);font-family:"Courier New",monospace;font-size:12px;margin-right:8px;vertical-align:1px;}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:720px){.two{grid-template-columns:1fr}}
+  .box h3{font-size:13px;margin:0 0 8px;font-family:"Courier New",monospace;letter-spacing:.05em;}
+  .tabs{display:flex;gap:6px;margin-bottom:9px;}
+  .tab{padding:6px 12px;border:1px solid var(--line2);border-radius:6px;background:#efe7d6;cursor:pointer;font-size:12px;font-family:"Courier New",monospace;}
+  .tab.on{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  textarea{width:100%;min-height:120px;font-family:"Courier New",monospace;font-size:11.5px;border:1px solid var(--line2);border-radius:7px;padding:10px;background:#fffdf6;resize:vertical;color:var(--ink);}
+  input[type=file],select{font-family:inherit;font-size:13px;border:1px solid var(--line2);border-radius:6px;padding:7px 9px;background:#fffdf6;color:var(--ink);width:100%;}
+  .fld{display:flex;flex-direction:column;gap:5px;margin-bottom:8px;}
+  .fld label{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--soft);font-family:"Courier New",monospace;}
+  button{font-family:"Courier New",monospace;font-size:13px;letter-spacing:.04em;border:1px solid var(--ink);border-radius:7px;padding:10px 17px;background:var(--ink);color:var(--paper);cursor:pointer;transition:transform .06s;}
+  button:hover{transform:translateY(-1px)} button.ghost{background:transparent;color:var(--ink);} button.accent{background:var(--accent);border-color:var(--accent);}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+  .hint{font-size:12px;color:var(--soft);margin:7px 0 0;line-height:1.5;}
+  .map-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:11px;}
+  .note{font-size:12px;color:var(--warn);background:#faf2e0;border:1px solid #e7d3a8;border-radius:7px;padding:9px 12px;margin-top:10px;}
+  .err{color:var(--bad);background:#f8e7df;border-color:#e6c2b3;}
+  .ok{color:var(--good);background:#e6efe9;border-color:#b7d2c6;}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;}
+  th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);}
+  th{font-family:"Courier New",monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent2);border-bottom:1px solid var(--line2);}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .scroll{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:8px;}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:11px;}
+  .stat{background:#fffdf6;border:1px solid var(--line);border-radius:9px;padding:12px 14px;}
+  .stat .k{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--soft);font-family:"Courier New",monospace;}
+  .stat .v{font-size:21px;font-weight:700;margin-top:3px;}
+  .stat.bad .v{color:var(--bad)} .stat.good .v{color:var(--good)}
+  .seg{display:inline-flex;border:1px solid var(--line2);border-radius:7px;overflow:hidden;}
+  .seg button{border:none;border-radius:0;background:#efe7d6;color:var(--ink);padding:7px 13px;}
+  .seg button.on{background:var(--accent2);color:var(--paper);} .seg button+button{border-left:1px solid var(--line2);}
+  canvas{background:#fffdf6;border:1px solid var(--line);border-radius:9px;padding:8px;margin-top:14px;}
+  .foot{font-size:11.5px;color:var(--soft);margin-top:38px;border-top:1px solid var(--line2);padding-top:13px;line-height:1.6;}
+  .pill{display:inline-block;font-family:"Courier New",monospace;font-size:10px;padding:2px 8px;border:1px solid var(--line2);border-radius:20px;color:var(--soft);margin-left:6px;}
+  .hide{display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <p class="kick">Primavera P6 &middot; Planning Toolkit</p>
+    <h1>Cost Writer</h1>
+    <p class="sub">Puts cost <strong>onto</strong> activities that have none. Match a cost source to your schedule
+      <strong>by Activity ID</strong>, review what matched, and export a P6 import file (activity expenses, PROJCOST)
+      you load straight back into the project. Universal &mdash; any project, any company.</p>
+  </header>
+
+  <!-- 1: ACTIVITIES -->
+  <section class="panel">
+    <h2><span class="step">1</span>Your activities (no cost yet)</h2>
+    <div class="two">
+      <div class="box">
+        <div class="tabs" data-grp="act">
+          <div class="tab on" data-mode="paste">Paste</div>
+          <div class="tab" data-mode="file">Upload</div>
+        </div>
+        <div id="act_paste"><textarea id="actText" placeholder="Paste activities from P6. Need at least Activity ID + Activity Name. Header row found automatically."></textarea></div>
+        <div id="act_file" class="hide">
+          <div class="fld"><label>Activities file (.xlsx/.csv) &mdash; e.g. your P6 TASK export</label><input type="file" id="actFile" accept=".xlsx,.xls,.csv"></div>
+          <div class="fld hide" id="actSheetWrap"><label>Sheet</label><select id="actSheet"></select></div>
+        </div>
+      </div>
+      <div class="box">
+        <h3>Map columns</h3>
+        <div class="map-grid" id="actMap"><p class="hint">Load activities to map.</p></div>
+      </div>
+    </div>
+    <button id="readAct" class="accent" style="margin-top:10px">Read activities &rarr;</button>
+    <button id="demo" class="ghost" style="margin-top:10px">Try with sample</button>
+    <div id="actMsg"></div>
+  </section>
+
+  <!-- 2: COST SOURCE -->
+  <section class="panel">
+    <h2><span class="step">2</span>Your cost source (keyed by Activity ID)</h2>
+    <div class="two">
+      <div class="box">
+        <div class="tabs" data-grp="cost">
+          <div class="tab on" data-mode="paste">Paste</div>
+          <div class="tab" data-mode="file">Upload</div>
+        </div>
+        <div id="cost_paste"><textarea id="costText" placeholder="Paste your cost source. Need Activity ID + an amount. Many lines per ID is fine - they're summed."></textarea></div>
+        <div id="cost_file" class="hide">
+          <div class="fld"><label>Cost file (.xlsx/.csv) &mdash; BOQ / value list keyed by Activity ID</label><input type="file" id="costFile" accept=".xlsx,.xls,.csv"></div>
+          <div class="fld hide" id="costSheetWrap"><label>Sheet</label><select id="costSheet"></select></div>
+        </div>
+      </div>
+      <div class="box">
+        <h3>Map columns</h3>
+        <div class="map-grid" id="costMap"><p class="hint">Load cost source to map.</p></div>
+      </div>
+    </div>
+    <button id="readCost" class="accent" style="margin-top:10px">Read cost source &rarr;</button>
+    <div id="costMsg"></div>
+  </section>
+
+  <!-- 3: MATCH + WRITE -->
+  <section class="panel">
+    <h2><span class="step">3</span>Match on Activity ID &amp; write</h2>
+    <button id="match" class="accent">Match &amp; build import file &rarr;</button>
+    <div id="matchMsg"></div>
+
+    <div id="results" class="hide">
+      <div class="stats" style="margin-top:14px" id="stats"></div>
+
+      <div class="panel" style="margin:16px 0 0;background:#fffaf0;border-color:#e7d3a8">
+        <h2 style="color:var(--accent)">Export for P6 &mdash; choose your path</h2>
+
+        <h3 style="font-family:'Courier New',monospace;font-size:13px;margin:4px 0 6px">Method A &middot; Round-trip <span class="pill" style="border-color:var(--good);color:var(--good)">recommended &mdash; no warning</span></h3>
+        <p class="hint" style="margin-top:0">In P6: <strong>File &rarr; Export &rarr; Spreadsheet (XLSX)</strong>, tick <strong>Expenses</strong>, export your project. Drop that file here &mdash; the tool writes your cost into its PROJCOST sheet and leaves everything else (including P6's USERDATA) untouched, so P6 re-imports its own file with <strong>no "user preferences" warning</strong>.</p>
+        <div class="fld" style="max-width:480px"><label>Your P6 export (.xlsx)</label><input type="file" id="p6file" accept=".xlsx,.xls"></div>
+        <button id="dlRoundtrip" disabled>Inject cost &amp; download P6-ready file</button>
+        <div id="rtMsg"></div>
+
+        <div style="height:1px;background:var(--line2);margin:16px 0"></div>
+
+        <h3 style="font-family:'Courier New',monospace;font-size:13px;margin:4px 0 6px">Method B &middot; Generate from scratch <span class="pill" style="border-color:var(--warn);color:var(--warn)">works &mdash; P6 may ask to confirm</span></h3>
+        <p class="hint" style="margin-top:0">No P6 export handy? This builds a PROJCOST + USERDATA workbook. On import P6 may warn that "user preferences could not be found" &mdash; that is expected for a generated file; click <strong>Yes</strong> (on a project copy) and the cost loads.</p>
+        <div class="toolbar">
+          <button id="dlP6">Generate P6 import (.xlsx)</button>
+          <button id="dlUnmatched" class="ghost">Download unmatched IDs</button>
+        </div>
+      </div>
+      <div class="note" style="margin-top:12px">Either way: import into a <strong>copy</strong> of the project first (File &rarr; Import &rarr; Spreadsheet &rarr; XLSX), and verify the imported total equals the "Cost matched" stat above. <strong>CSV cannot be imported by P6</strong> &mdash; that's why this tool now produces XLSX. Note your P6 is Professional 23 and currency is Saudi Riyal.</div>
+
+      <h2 style="margin-top:22px"><span class="step">4</span>What matched <span class="pill" id="matchPill"></span></h2>
+      <div class="scroll"><table id="matchTable"></table></div>
+
+      <div id="unmatchedWrap" class="hide">
+        <h2 style="margin-top:20px;color:var(--bad)"><span class="step" style="background:var(--bad)">!</span>Unmatched cost (NOT written)</h2>
+        <p class="hint" style="margin-top:0">These cost-source IDs were not found among your activities. Nothing was loaded for them &mdash; fix the IDs and re-run, or ignore if intentional.</p>
+        <div class="scroll"><table id="unmatchedTable"></table></div>
+      </div>
+
+      <h2 style="margin-top:22px"><span class="step">5</span>S-curve <span class="pill">free once cost is on</span></h2>
+      <div class="seg" id="periodSeg"><button data-p="month" class="on">Monthly</button><button data-p="week">Weekly</button></div>
+      <canvas id="chart" height="150"></canvas>
+      <div id="curveNote"></div>
+      <div class="toolbar"><button id="dlCurve" class="ghost">Download S-curve (CSV)</button></div>
+    </div>
+  </section>
+
+  <p class="foot">
+    Runs entirely in your browser &mdash; nothing is uploaded. Match is strict on Activity ID: exact key, no fuzzy
+    name-guessing, so cost never lands on the wrong activity. Multiple cost lines sharing an ID are summed.
+    Unmatched IDs are always shown, never silently dropped. The S-curve needs activity dates; if your activities
+    carry start/finish it draws automatically, otherwise the import file is still produced.
+  </p>
+</div>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+let ACT={raw:[],hdr:[],map:{}}, COST={raw:[],hdr:[],map:{}};
+let MATCHED=[], UNMATCHED=[], chart=null, PERIOD='month';
+
+function msg(el,t,k){el.innerHTML=t?'<div class="note '+(k||'')+'">'+t+'</div>':'';}
+function cleanNum(v){if(v==null)return null;if(typeof v==='number')return isFinite(v)?v:null;const s=String(v).replace(/[^0-9.\-]/g,'');if(s===''||s==='-')return null;const n=parseFloat(s);return isFinite(n)?n:null;}
+const MO={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+function parseDate(v){if(v instanceof Date&&!isNaN(v))return v;if(typeof v==='number'){const d=new Date(Date.UTC(1899,11,30));d.setUTCDate(d.getUTCDate()+Math.round(v));return d;}if(v==null)return null;const s=String(v).trim();let m=s.match(/^(\d{1,2})[-\/ ]([A-Za-z]{3,})[-\/ ](\d{2,4})/);if(m){let y=+m[3];if(y<100)y+=2000;const mo=MO[m[2].slice(0,3).toLowerCase()];if(mo!=null)return new Date(y,mo,+m[1]);}m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);m=s.match(/^(\d{1,2})[\/](\d{1,2})[\/](\d{2,4})/);if(m){let y=+m[3];if(y<100)y+=2000;return new Date(y,+m[1]-1,+m[2]);}const d=new Date(s);return isNaN(d)?null:d;}
+
+function splitRow(l){return l.includes('\t')?l.split('\t'):l.split(/ {2,}/);}
+function rowLooksData(r){
+  // a data row has at least one cell that is purely numeric (a cost / qty)
+  return r.some(c=>{const s=String(c).trim();return s!==''&&/^-?[\d,]+(\.\d+)?$/.test(s.replace(/\s/g,''));});
+}
+function findHeader(rows,kw){
+  let best=-1,bs=0;
+  rows.slice(0,40).forEach((r,i)=>{
+    const kwHits=r.filter(c=>kw.test(String(c))).length;
+    const hasNum=rowLooksData(r);
+    // a real header scores on keywords AND has no numeric cells
+    const sc=kwHits-(hasNum?100:0);
+    if(sc>bs){bs=sc;best=i;}
+  });
+  return best;   // -1 means: no genuine header found
+}
+function ingest(matrix,kw){
+  matrix=matrix.filter(r=>r.some(c=>String(c).trim()!==''));
+  if(!matrix.length)return null;
+  const h=findHeader(matrix,kw);
+  let hdr,raw;
+  if(h<0){
+    // headerless paste: synthesize column names, keep ALL rows as data
+    const ncol=Math.max(...matrix.map(r=>r.length));
+    hdr=Array.from({length:ncol},(_,i)=>'Column '+(i+1));
+    raw=matrix.map(r=>{const o={};hdr.forEach((k,i)=>o[k]=r[i]!=null?r[i]:'');return o;});
+  }else{
+    hdr=matrix[h].map(c=>String(c).trim());
+    raw=matrix.slice(h+1).map(r=>{const o={};hdr.forEach((k,i)=>o[k]=r[i]!=null?r[i]:'');return o;});
+  }
+  return raw.length?{hdr:hdr,raw:raw,headerless:h<0}:null;
+}
+function guess(H,pats){for(const p of pats){const h=H.find(x=>p.test(x));if(h)return h;}return '';}
+
+// content-based guess for headerless pastes: inspect sample values per column
+function guessByContent(O,kind){
+  const cols=O.hdr, sample=O.raw.slice(0,20);
+  const score=cols.map(c=>{
+    let numeric=0,idish=0,textish=0,maxLen=0;
+    sample.forEach(r=>{const v=String(r[c]||'').trim();if(!v)return;
+      if(/^-?[\d,]+(\.\d+)?$/.test(v.replace(/\s/g,'')))numeric++;
+      if(/[A-Za-z].*[-_.\d]|[-_.].*\d/.test(v)&&!/\s\w+\s\w+\s/.test(v))idish++;
+      if(/\s/.test(v))textish++;
+      maxLen=Math.max(maxLen,v.length);});
+    return {c,numeric,idish,textish,maxLen};
+  });
+  if(kind==='cost'){ const best=score.slice().sort((a,b)=>b.numeric-a.numeric)[0]; return best&&best.numeric?best.c:''; }
+  if(kind==='id'){
+    const nonNum=score.filter(s=>s.numeric===0);
+    const best=(nonNum.length?nonNum:score).slice().sort((a,b)=>b.idish-a.idish||a.maxLen-b.maxLen)[0];
+    return best?best.c:'';
+  }
+  if(kind==='name'){ const best=score.slice().sort((a,b)=>b.textish-a.textish||b.maxLen-a.maxLen)[0]; return best?best.c:''; }
+  return '';
+}
+
+function renderMap(which){
+  const O=which==='act'?ACT:COST;
+  const H=O.hdr;
+  let fields;
+  if(which==='act'){
+    fields=[['id','Activity ID',true,[/activity\s*id/i,/task\s*code/i,/^id$/i,/^code$/i]],
+            ['name','Activity Name',false,[/activity\s*name/i,/task_name/i,/^name$/i,/description/i]],
+            ['start','Start (for S-curve)',false,[/bl1?\s*start/i,/start_date/i,/^start$/i,/\(\*\)start/i]],
+            ['finish','Finish (for S-curve)',false,[/bl1?\s*finish/i,/end_date/i,/^finish$/i,/\(\*\)finish/i]]];
+  }else{
+    fields=[['id','Activity ID',true,[/activity\s*id/i,/task_?id/i,/^id$/i,/^code$/i,/act.*id/i]],
+            ['cost','Cost amount',true,[/budget/i,/target_cost/i,/cost/i,/amount/i,/value/i,/price/i,/total/i,/sar/i]]];
+  }
+  const tgt=which==='act'?'#actMap':'#costMap';
+  $(tgt).innerHTML=fields.map(f=>{
+    const k=f[0],lbl=f[1],req=f[2],pats=f[3];
+    let cur=O.map[k]||guess(H,pats);
+    if(!cur && O.headerless && ['id','cost','name'].includes(k)) cur=guessByContent(O,k);
+    const opts=['<option value="">- none -</option>'].concat(H.map(h=>'<option '+(cur===h?'selected':'')+'>'+h+'</option>')).join('');
+    return '<div class="fld"><label>'+lbl+(req?' *':'')+'</label><select data-w="'+which+'" data-k="'+k+'">'+opts+'</select></div>';
+  }).join('');
+}
+function collectMap(which){const O=which==='act'?ACT:COST;O.map={};$$('select[data-w="'+which+'"]').forEach(s=>O.map[s.dataset.k]=s.value);}
+
+// tab toggles
+$$('.tabs').forEach(t=>{const grp=t.dataset.grp;t.querySelectorAll('.tab').forEach(tab=>tab.onclick=()=>{t.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));tab.classList.add('on');const m=tab.dataset.mode;$('#'+grp+'_paste').classList.toggle('hide',m!=='paste');$('#'+grp+'_file').classList.toggle('hide',m!=='file');});});
+
+const ACT_KW=/activ|task|name|id|code|start|finish|wbs/i;
+const COST_KW=/activ|id|task|cost|budget|amount|value|price|total|sar/i;
+
+$('#readAct').onclick=()=>{
+  const txt=$('#actText').value.trim();
+  if(txt){const r=ingest(txt.split(/\r?\n/).map(splitRow),ACT_KW);if(!r){msg($('#actMsg'),'Could not read - paste rows or include a header.','err');return;}ACT.hdr=r.hdr;ACT.raw=r.raw;ACT.headerless=r.headerless;}
+  if(!ACT.raw.length){msg($('#actMsg'),'Paste or upload activities first.','err');return;}
+  renderMap('act');msg($('#actMsg'),'Activities: '+ACT.raw.length+' rows'+(ACT.headerless?' (no header row - all rows kept as data; columns guessed by content).':', '+ACT.hdr.length+' columns.')+' Check the mapping above-right.','ok');
+};
+$('#readCost').onclick=()=>{
+  const txt=$('#costText').value.trim();
+  if(txt){const r=ingest(txt.split(/\r?\n/).map(splitRow),COST_KW);if(!r){msg($('#costMsg'),'Could not read - paste rows or include a header.','err');return;}COST.hdr=r.hdr;COST.raw=r.raw;COST.headerless=r.headerless;}
+  if(!COST.raw.length){msg($('#costMsg'),'Paste or upload a cost source first.','err');return;}
+  renderMap('cost');msg($('#costMsg'),'Cost source: '+COST.raw.length+' rows'+(COST.headerless?' (no header row - all rows kept as data; columns guessed by content).':', '+COST.hdr.length+' columns.')+' Check the mapping above-right.','ok');
+};
+
+function fileHandler(which){
+  const fInput=which==='act'?'#actFile':'#costFile', sWrap=which==='act'?'#actSheetWrap':'#costSheetWrap', sSel=which==='act'?'#actSheet':'#costSheet', kw=which==='act'?ACT_KW:COST_KW, O=which==='act'?ACT:COST, mEl=which==='act'?'#actMsg':'#costMsg';
+  $(fInput).onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+    rd.onload=ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});const sel=$(sSel);sel.innerHTML=wb.SheetNames.map(n=>'<option>'+n+'</option>').join('');$(sWrap).classList.remove('hide');$(sWrap).style.display='flex';
+      const load=()=>{const ws=wb.Sheets[sel.value];const matrix=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});const r=ingest(matrix,kw);if(!r){msg($(mEl),'No readable table in that sheet.','err');return;}O.hdr=r.hdr;O.raw=r.raw;O.headerless=r.headerless;renderMap(which);msg($(mEl),'Sheet "'+sel.value+'": '+r.raw.length+' rows'+(r.headerless?' (no header detected; columns guessed by content).':'.')+' Check the mapping.','ok');};
+      sel.onchange=load;load();}catch(err){msg($(mEl),'Could not open: '+err.message,'err');}};
+    rd.readAsArrayBuffer(f);};
+}
+fileHandler('act');fileHandler('cost');
+
+$('#match').onclick=()=>{
+  collectMap('act');collectMap('cost');
+  if(!ACT.raw.length){msg($('#matchMsg'),'Read your activities first (step 1).','err');return;}
+  if(!COST.raw.length){msg($('#matchMsg'),'Read your cost source first (step 2).','err');return;}
+  if(!ACT.map.id){msg($('#matchMsg'),'Map the Activity ID column for activities.','err');return;}
+  if(!COST.map.id||!COST.map.cost){msg($('#matchMsg'),'Map Activity ID and Cost amount for the cost source.','err');return;}
+
+  // activities index
+  const acts={};
+  for(const r of ACT.raw){const id=String(r[ACT.map.id]||'').trim();if(!id)continue;
+    acts[id]={id:id,name:ACT.map.name?String(r[ACT.map.name]||'').trim():'',
+      start:ACT.map.start?parseDate(r[ACT.map.start]):null,finish:ACT.map.finish?parseDate(r[ACT.map.finish]):null};}
+  // sum cost by id
+  const sum={},lineCount={};
+  for(const r of COST.raw){const id=String(r[COST.map.id]||'').trim();const amt=cleanNum(r[COST.map.cost]);if(!id||amt==null)continue;sum[id]=(sum[id]||0)+amt;lineCount[id]=(lineCount[id]||0)+1;}
+
+  MATCHED=[];UNMATCHED=[];
+  for(const id in sum){
+    if(acts[id]) MATCHED.push({id:id,name:acts[id].name,cost:sum[id],lines:lineCount[id],start:acts[id].start,finish:acts[id].finish});
+    else UNMATCHED.push({id:id,cost:sum[id],lines:lineCount[id]});
+  }
+  MATCHED.sort((a,b)=>b.cost-a.cost);UNMATCHED.sort((a,b)=>b.cost-a.cost);
+
+  if(!MATCHED.length){msg($('#matchMsg'),'No cost-source IDs matched any activity. Check that both sides use the same Activity ID format.','err');$('#results').classList.add('hide');return;}
+  msg($('#matchMsg'),'Matched '+MATCHED.length+' activities. '+(UNMATCHED.length?UNMATCHED.length+' cost IDs unmatched (shown below, not written).':'All cost IDs matched.'),UNMATCHED.length?'':'ok');
+  renderResults();
+};
+
+function renderResults(){
+  const totMatch=MATCHED.reduce((s,m)=>s+m.cost,0);
+  const totUn=UNMATCHED.reduce((s,m)=>s+m.cost,0);
+  $('#stats').innerHTML=[
+    ['good','Activities costed',MATCHED.length],
+    ['good','Cost matched',totMatch.toLocaleString(undefined,{maximumFractionDigits:0})],
+    [UNMATCHED.length?'bad':'','Unmatched IDs',UNMATCHED.length],
+    [UNMATCHED.length?'bad':'','Cost unmatched',totUn.toLocaleString(undefined,{maximumFractionDigits:0})],
+  ].map(a=>'<div class="stat '+a[0]+'"><div class="k">'+a[1]+'</div><div class="v">'+a[2]+'</div></div>').join('');
+
+  $('#matchPill').textContent=MATCHED.length+' activities';
+  $('#matchTable').innerHTML='<thead><tr><th>Activity ID</th><th>Name</th><th class="num">Lines</th><th class="num">Cost loaded</th></tr></thead><tbody>'+
+    MATCHED.map(m=>'<tr><td>'+m.id+'</td><td>'+(m.name||'')+'</td><td class="num">'+m.lines+'</td><td class="num">'+m.cost.toLocaleString(undefined,{maximumFractionDigits:0})+'</td></tr>').join('')+'</tbody>';
+
+  if(UNMATCHED.length){$('#unmatchedWrap').classList.remove('hide');
+    $('#unmatchedTable').innerHTML='<thead><tr><th>Activity ID (not found)</th><th class="num">Lines</th><th class="num">Cost (skipped)</th></tr></thead><tbody>'+
+      UNMATCHED.map(m=>'<tr><td>'+m.id+'</td><td class="num">'+m.lines+'</td><td class="num">'+m.cost.toLocaleString(undefined,{maximumFractionDigits:0})+'</td></tr>').join('')+'</tbody>';
+  }else $('#unmatchedWrap').classList.add('hide');
+
+  drawCurve();
+  $('#results').classList.remove('hide');
+}
+
+// ---- exports ----
+function dl(name,blob){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
+function csv(aoa){return aoa.map(r=>r.map(c=>{const s=String(c==null?'':c);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');}
+
+const COST_LOOKUP=()=>{const o={};MATCHED.forEach(m=>o[m.id]=m.cost);return o;};
+
+// USERDATA sheet content P6 expects (currency Saudi Riyal as seen in your install)
+function userdataAOA(){
+  return [['user_data'],['UserSettings Do Not Edit'],
+    ['DurationQtyType=QT_Day\nShowAsPercentage=0\nSmallScaleQtyType=QT_Hour\nDateFormat=m/d/yyyy\nCurrencyFormat=Saudi Riyal\n']];
+}
+function projcostAOA(){
+  const aoa=[
+    ['task_id','cost_name','TASK__status_code','target_cost','act_cost','remain_cost','total_cost','delete_record_flag'],
+    ['Activity ID','Expense Item','(*)Activity Status','Budgeted Cost','Actual Cost','Remaining Cost','At Completion Cost','Delete This Row']
+  ];
+  MATCHED.forEach(m=>aoa.push([m.id,'Budget','Not Started',m.cost,0,m.cost,m.cost,null]));
+  return aoa;
+}
+
+// METHOD B: generate PROJCOST + USERDATA from scratch
+$('#dlP6').onclick=()=>{
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(projcostAOA()),'PROJCOST');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(userdataAOA()),'USERDATA');
+  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  dl('P6_PROJCOST_import.xlsx',new Blob([out],{type:'application/octet-stream'}));
+};
+
+// METHOD A: round-trip — inject cost into the user's own P6 export, preserve all sheets
+let P6WB=null;
+$('#p6file').onchange=e=>{
+  const f=e.target.files[0]; if(!f){return;}
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    try{
+      P6WB=XLSX.read(ev.target.result,{type:'array',cellDates:false});
+      if(!P6WB.SheetNames.includes('PROJCOST')){
+        msg($('#rtMsg'),'This workbook has no PROJCOST sheet. In P6 export, tick "Expenses" so the PROJCOST sheet is included, then re-export.','err');
+        $('#dlRoundtrip').disabled=true; return;
+      }
+      msg($('#rtMsg'),'Loaded your P6 export ('+P6WB.SheetNames.length+' sheets incl. PROJCOST). Ready to inject cost.','ok');
+      $('#dlRoundtrip').disabled=false;
+    }catch(err){ msg($('#rtMsg'),'Could not open that file: '+err.message,'err'); $('#dlRoundtrip').disabled=true; }
+  };
+  rd.readAsArrayBuffer(f);
+};
+$('#dlRoundtrip').onclick=()=>{
+  if(!P6WB){ msg($('#rtMsg'),'Upload your P6 export first.','err'); return; }
+  const ws=P6WB.Sheets['PROJCOST'];
+  const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+  if(aoa.length<1){ msg($('#rtMsg'),'PROJCOST sheet is empty.','err'); return; }
+  const fields=aoa[0].map(x=>String(x));
+  const iId=fields.indexOf('task_id'), iCost=fields.indexOf('target_cost'),
+        iTot=fields.indexOf('total_cost'), iRem=fields.indexOf('remain_cost'),
+        iName=fields.indexOf('cost_name');
+  if(iId<0||iCost<0){ msg($('#rtMsg'),'PROJCOST sheet is missing task_id / target_cost columns - re-export from P6 with Expenses ticked.','err'); return; }
+  const look=COST_LOOKUP();
+  const have=new Set();
+  for(let r=2;r<aoa.length;r++){ const id=String(aoa[r][iId]||'').trim(); if(look[id]!=null){
+    aoa[r][iCost]=look[id]; if(iTot>=0)aoa[r][iTot]=look[id]; if(iRem>=0)aoa[r][iRem]=look[id]; have.add(id);
+  }}
+  // activities matched but not present as expense rows in the export -> append new PROJCOST rows
+  let appended=0;
+  for(const m of MATCHED){ if(!have.has(m.id)){
+    const row=new Array(fields.length).fill(null);
+    row[iId]=m.id; row[iCost]=m.cost; if(iTot>=0)row[iTot]=m.cost; if(iRem>=0)row[iRem]=m.cost;
+    if(iName>=0)row[iName]='Budget';
+    const st=fields.indexOf('TASK__status_code'); if(st>=0)row[st]='Not Started';
+    aoa.push(row); appended++; have.add(m.id);
+  }}
+  P6WB.Sheets['PROJCOST']=XLSX.utils.aoa_to_sheet(aoa);
+  const out=XLSX.write(P6WB,{bookType:'xlsx',type:'array'});
+  dl('P6_export_cost_loaded.xlsx',new Blob([out],{type:'application/octet-stream'}));
+  msg($('#rtMsg'),'Wrote cost into '+have.size+' activities'+(appended?' ('+appended+' new expense rows appended)':'')+'. All original sheets preserved - import this back into P6 (project copy), no preferences warning.','ok');
+};
+
+$('#dlUnmatched').onclick=()=>{const aoa=[['Activity ID','Lines','Cost (skipped)']].concat(UNMATCHED.map(m=>[m.id,m.lines,m.cost]));dl('unmatched_cost_ids.csv',new Blob([csv(aoa)],{type:'text/csv'}));};
+
+// ---- S-curve (needs dates) ----
+const DAY=86400000;
+function pkey(dt){if(PERIOD==='month')return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');const d=new Date(dt);const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);return d.getFullYear()+'-W'+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');}
+function plabel(k){if(PERIOD==='month'){const p=k.split('-');return['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+p[1]-1]+" '"+p[0].slice(2);}const m=k.match(/W(\d\d)(\d\d)$/);return m?m[2]+'/'+m[1]+" '"+k.slice(2,4):k;}
+function curveData(){
+  const withDates=MATCHED.filter(m=>m.start&&m.finish);
+  if(!withDates.length)return null;
+  const b={};let total=0;
+  for(const m of withDates){total+=m.cost;const f=m.finish<m.start?m.start:m.finish;const days=Math.round((f-m.start)/DAY)+1;const per=m.cost/days;for(let t=m.start.getTime();t<=f.getTime();t+=DAY){const k=pkey(new Date(t));b[k]=(b[k]||0)+per;}}
+  const keys=Object.keys(b).sort();let cum=0;const rows=keys.map(k=>{cum+=b[k];return{label:plabel(k),period:b[k],cum:cum,pct:total?100*cum/total:0};});
+  return{rows:rows,total:total,n:withDates.length,missing:MATCHED.length-withDates.length};
+}
+function drawCurve(){
+  const D=curveData();
+  if(!D){msg($('#curveNote'),'No activity dates mapped, so no S-curve drawn - the import file is still ready. Map Start/Finish in step 1 to see the curve.','');if(chart){chart.destroy();chart=null;}window._curve=null;return;}
+  window._curve=D;
+  msg($('#curveNote'),'S-curve from '+D.n+' dated activities'+(D.missing?' ('+D.missing+' matched activities had no dates and are omitted from the curve, but ARE in the import file).':'.'),D.missing?'':'ok');
+  if(chart)chart.destroy();
+  chart=new Chart($('#chart').getContext('2d'),{data:{labels:D.rows.map(r=>r.label),datasets:[
+    {type:'bar',label:'Period cost',data:D.rows.map(r=>r.period),backgroundColor:'rgba(42,93,84,.3)',borderColor:'rgba(42,93,84,.7)',borderWidth:1,yAxisID:'y',order:2},
+    {type:'line',label:'Cumulative %',data:D.rows.map(r=>r.pct),borderColor:'#9c3318',backgroundColor:'rgba(156,51,24,.08)',borderWidth:2.5,fill:true,tension:.35,pointRadius:2,yAxisID:'y1',order:1}
+  ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{font:{family:'Courier New'}}}},
+    scales:{y:{position:'left',title:{display:true,text:'Period cost'},grid:{color:'#ece4d2'}},y1:{position:'right',min:0,max:100,title:{display:true,text:'Cumulative %'},grid:{drawOnChartArea:false},ticks:{callback:v=>v+'%'}},x:{grid:{display:false},ticks:{maxRotation:60,font:{size:10}}}}}});
+}
+$$('#periodSeg button').forEach(b=>b.onclick=()=>{$$('#periodSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');PERIOD=b.dataset.p;drawCurve();});
+$('#dlCurve').onclick=()=>{const D=window._curve;if(!D)return;const aoa=[['Period','Period Cost','Cumulative','Cumulative %']].concat(D.rows.map(r=>[r.label,r.period.toFixed(2),r.cum.toFixed(2),r.pct.toFixed(2)]));dl('s_curve.csv',new Blob([csv(aoa)],{type:'text/csv'}));};
+
+// ---- demo ----
+$('#demo').onclick=()=>{
+  $('#actText').value='Activity ID\tActivity Name\tStart\tFinish\nEC1000\tDesign Building Addition\t01-Nov-25\t19-Jan-26\nEC1170\tPrepare Foundation Drawings\t20-Jan-26\t10-Feb-26\nEC1250\tExcavate Footings\t11-Feb-26\t05-Mar-26\nEC1300\tForm & Pour Foundation\t06-Mar-26\t02-Apr-26\nEC1340\tErect Structural Frame\t03-Apr-26\t30-Apr-26';
+  $('#costText').value='Activity ID\tItem\tCost\nEC1000\tDesign labor\t12000\nEC1000\tDesign reviews\t3000\nEC1170\tDrafting\t8500\nEC1250\tExcavation\t22000\nEC9999\tOrphan line\t5000\nEC1300\tConcrete\t4400\nEC1300\tFormwork\t600\nEC1340\tSteel\t31000';
+  $('#readAct').click();$('#readCost').click();
+};
+</script>
+</body>
+</html>
